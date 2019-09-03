@@ -49,6 +49,15 @@ extension Enum {
   }
 #endif  // swift(>=4.2)
 
+  public var string: String? {
+    switch name {
+    case .none:
+      return nil
+    case let .some(name):
+      return String(bytes: name.utf8Buffer, encoding: .utf8)
+    }
+  }
+
   /// Internal convenience property representing the name of the enum value (or
   /// `nil` if it is an `UNRECOGNIZED` value or doesn't provide names).
   ///
