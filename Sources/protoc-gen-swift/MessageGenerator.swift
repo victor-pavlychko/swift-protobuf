@@ -53,9 +53,9 @@ class MessageGenerator {
     // when the message has one or more oneof{}s. As that will efficively
     // reduce the real number of fields and the message might not need heap
     // storage yet.
-    let useHeapStorage = isAnyMessage || descriptor.fields.count > 16 || hasSingleMessageField(descriptor: descriptor)
+    let useHeapStorage = isAnyMessage || descriptor.fields.count > 16 || hasRecursiveSingularField(descriptor: descriptor)
 
-    oneofs = descriptor.oneofs.map {
+    oneofs = descriptor.realOneofs.map {
       return OneofGenerator(descriptor: $0, generatorOptions: generatorOptions, namer: namer, usesHeapStorage: useHeapStorage)
     }
 
@@ -118,7 +118,7 @@ class MessageGenerator {
 
     let conformances: String
     if isExtensible {
-      conformances = ": SwiftProtobuf.ExtensibleMessage"
+      conformances = ": \(SwiftProtobufInfo.name).ExtensibleMessage"
     } else {
       conformances = ""
     }
@@ -127,7 +127,7 @@ class MessageGenerator {
         descriptor.protoSourceComments(),
         "\(visibility)struct \(swiftRelativeName)\(conformances) {\n")
     p.indent()
-    p.print("// SwiftProtobuf.Message conformance is added in an extension below. See the\n",
+    p.print("// \(SwiftProtobufInfo.name).Message conformance is added in an extension below. See the\n",
             "// `Message` and `Message+*Additions` files in the SwiftProtobuf library for\n",
             "// methods supported on all messages.\n")
 
@@ -137,7 +137,7 @@ class MessageGenerator {
 
     p.print(
         "\n",
-        "\(visibility)var unknownFields = SwiftProtobuf.UnknownStorage()\n")
+        "\(visibility)var unknownFields = \(SwiftProtobufInfo.name).UnknownStorage()\n")
 
     for o in oneofs {
       o.generateMainEnum(printer: &p)
@@ -164,7 +164,7 @@ class MessageGenerator {
     if isExtensible {
       p.print(
           "\n",
-          "\(visibility)var _protobuf_extensionFieldValues = SwiftProtobuf.ExtensionFieldValueSet()\n")
+          "\(visibility)var _protobuf_extensionFieldValues = \(SwiftProtobufInfo.name).ExtensionFieldValueSet()\n")
     }
     if let storage = storage {
       if !isExtensible {
@@ -192,12 +192,15 @@ class MessageGenerator {
     for e in enums {
       e.generateCaseIterable(printer: &p, includeGuards: false)
     }
+    for m in messages {
+      m.generateEnumCaseIterable(printer: &p)
+    }
   }
 
   func generateRuntimeSupport(printer p: inout CodePrinter, file: FileGenerator, parent: MessageGenerator?) {
     p.print(
         "\n",
-        "extension \(swiftFullName): SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {\n")
+        "extension \(swiftFullName): \(SwiftProtobufInfo.name).Message, \(SwiftProtobufInfo.name)._MessageImplementationBase, \(SwiftProtobufInfo.name)._ProtoNameProviding {\n")
     p.indent()
 
     if let parent = parent {
@@ -236,9 +239,9 @@ class MessageGenerator {
 
   private func generateProtoNameProviding(printer p: inout CodePrinter) {
     if fields.isEmpty {
-      p.print("\(visibility)static let _protobuf_nameMap = SwiftProtobuf._NameMap()\n")
+      p.print("\(visibility)static let _protobuf_nameMap = \(SwiftProtobufInfo.name)._NameMap()\n")
     } else {
-      p.print("\(visibility)static let _protobuf_nameMap: SwiftProtobuf._NameMap = [\n")
+      p.print("\(visibility)static let _protobuf_nameMap: \(SwiftProtobufInfo.name)._NameMap = [\n")
       p.indent()
       for f in fields {
         p.print("\(f.number): \(f.fieldMapNames),\n")
@@ -253,7 +256,7 @@ class MessageGenerator {
   ///
   /// - Parameter p: The code printer.
   private func generateDecodeMessage(printer p: inout CodePrinter) {
-    p.print("\(visibility)mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {\n")
+    p.print("\(visibility)mutating func decodeMessage<D: \(SwiftProtobufInfo.name).Decoder>(decoder: inout D) throws {\n")
     p.indent()
     if storage != nil {
       p.print("_ = _uniqueStorage()\n")
@@ -316,7 +319,7 @@ class MessageGenerator {
   ///
   /// - Parameter p: The code printer.
   private func generateTraverse(printer p: inout CodePrinter) {
-    p.print("\(visibility)func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {\n")
+    p.print("\(visibility)func traverse<V: \(SwiftProtobufInfo.name).Visitor>(visitor: inout V) throws {\n")
     p.indent()
     generateWithLifetimeExtension(printer: &p, throws: true) { p in
       if let storage = storage {
@@ -498,12 +501,37 @@ class MessageGenerator {
   }
 }
 
-fileprivate func hasSingleMessageField(descriptor: Descriptor) -> Bool {
-  let result = descriptor.fields.contains {
-    // Repeated check also rules out maps.
-    ($0.type == .message || $0.type == .group) && $0.label != .repeated
+fileprivate func hasRecursiveSingularField(descriptor: Descriptor, visited: [Descriptor] = []) -> Bool {
+  var visited = visited
+  visited.append(descriptor)
+  return descriptor.fields.contains {
+    // Ignore fields that aren’t messages or groups.
+    if $0.type != .message && $0.type != .group {
+      return false
+    }
+
+    // Repeated fields already use heap storage (for the array).
+    if $0.label == .repeated {
+      return false
+    }
+
+    guard let messageType = $0.messageType else {
+      return false
+    }
+
+    // We only care if the message or sub-message recurses to the root message.
+    if messageType === visited[0] {
+      return true
+    }
+
+    // Skip other visited fields.
+    if (visited.contains { $0 === messageType }) {
+      return false
+    }
+
+    // Examine sub-message.
+    return hasRecursiveSingularField(descriptor: messageType, visited: visited)
   }
-  return result
 }
 
 fileprivate struct MessageFieldFactory {
@@ -525,13 +553,12 @@ fileprivate struct MessageFieldFactory {
   }
 
   func make(forFieldDescriptor field: FieldDescriptor) -> FieldGenerator {
-    if let oneofIndex = field.oneofIndex {
-      return oneofs[Int(oneofIndex)].fieldGenerator(forFieldNumber: Int(field.number))
-    } else {
-      return MessageFieldGenerator(descriptor: field,
-                                   generatorOptions: generatorOptions,
-                                   namer: namer,
-                                   usesHeapStorage: useHeapStorage)
+    guard field.realOneof == nil else {
+      return oneofs[Int(field.oneofIndex!)].fieldGenerator(forFieldNumber: Int(field.number))
     }
+    return MessageFieldGenerator(descriptor: field,
+                                 generatorOptions: generatorOptions,
+                                 namer: namer,
+                                 usesHeapStorage: useHeapStorage)
   }
 }
