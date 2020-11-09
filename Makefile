@@ -123,6 +123,7 @@ TEST_PROTOS= \
 	Protos/unittest_swift_extension4.proto \
 	Protos/unittest_swift_fieldorder.proto \
 	Protos/unittest_swift_groups.proto \
+	Protos/unittest_swift_json.proto \
 	Protos/unittest_swift_naming.proto \
 	Protos/unittest_swift_naming_no_prefix.proto \
 	Protos/unittest_swift_naming_number_prefix.proto \
@@ -401,6 +402,7 @@ Tests/SwiftProtobufPluginLibraryTests/DescriptorTestData.swift: build ${PROTOC_G
 		${SWIFT_DESCRIPTOR_TEST_PROTOS}
 	@rm -f $@
 	@echo '// See Makefile how this is generated.' >> $@
+	@echo '// swift-format-ignore-file' >> $@
 	@echo 'import Foundation' >> $@
 	@echo 'let fileDescriptorSetBytes: [UInt8] = [' >> $@
 	@xxd -i < DescriptorTestData.bin >> $@
@@ -529,13 +531,16 @@ update-proto-files: check-for-protobuf-checkout
 #
 check-proto-files: check-for-protobuf-checkout
 	@for p in `cd ${GOOGLE_PROTOBUF_CHECKOUT} && ls conformance/*.proto`; do \
-		diff -u "${GOOGLE_PROTOBUF_CHECKOUT}/$$p" "Protos/$$p" || exit 1; \
+		diff -u "${GOOGLE_PROTOBUF_CHECKOUT}/$$p" "Protos/$$p" \
+		  || (echo "ERROR: Time to do a 'make update-proto-files'" && exit 1); \
 	done
 	@for p in `cd ${GOOGLE_PROTOBUF_CHECKOUT}/src && ls google/protobuf/*.proto | grep -v test`; do \
-		diff -u "${GOOGLE_PROTOBUF_CHECKOUT}/src/$$p" "Protos/$$p" || exit 1; \
+		diff -u "${GOOGLE_PROTOBUF_CHECKOUT}/src/$$p" "Protos/$$p" \
+		  || (echo "ERROR: Time to do a 'make update-proto-files'" && exit 1); \
 	done
 	@for p in `cd ${GOOGLE_PROTOBUF_CHECKOUT}/src && ls google/protobuf/compiler/*.proto`; do \
-		diff -u "${GOOGLE_PROTOBUF_CHECKOUT}/src/$$p" "Protos/$$p" || exit 1; \
+		diff -u "${GOOGLE_PROTOBUF_CHECKOUT}/src/$$p" "Protos/$$p" \
+		  || (echo "ERROR: Time to do a 'make update-proto-files'" && exit 1); \
 	done
 
 # Runs the conformance tests.
@@ -575,27 +580,21 @@ test-xcode-release: test-xcode-iOS-release test-xcode-macOS-release test-xcode-t
 
 # The individual ones
 
-# 4s - 32bit, 6s - 64bit
 test-xcode-iOS-debug:
-	# 9+ seems to not like concurrent testing with the iPhone 4s simulator.
 	xcodebuild -project SwiftProtobuf.xcodeproj \
 		-scheme SwiftProtobuf_iOS \
 		-configuration Debug \
 		-destination "platform=iOS Simulator,name=iPhone 8,OS=latest" \
-		-destination "platform=iOS Simulator,name=iPhone 4s,OS=9.0" \
 		-disable-concurrent-destination-testing \
 		test $(XCODEBUILD_EXTRAS)
 
-# 4s - 32bit, 6s - 64bit
 # Release defaults to not supporting testing, so add ENABLE_TESTABILITY=YES
 # to ensure the main library gets testing support.
 test-xcode-iOS-release:
-	# 9+ seems to not like concurrent testing with the iPhone 4s simulator.
 	xcodebuild -project SwiftProtobuf.xcodeproj \
 		-scheme SwiftProtobuf_iOS \
 		-configuration Release \
 		-destination "platform=iOS Simulator,name=iPhone 8,OS=latest" \
-		-destination "platform=iOS Simulator,name=iPhone 4s,OS=9.0" \
 		-disable-concurrent-destination-testing \
 		test ENABLE_TESTABILITY=YES $(XCODEBUILD_EXTRAS)
 

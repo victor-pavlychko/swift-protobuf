@@ -1,6 +1,7 @@
 //
 // GENERATED FILE
 // DO NOT EDIT
+// swift-format-ignore-file
 //
 
 import XCTest
@@ -266,8 +267,9 @@ extension Test_Any {
         ("test_Any_Value_string_transcode", test_Any_Value_string_transcode),
         ("test_Any_OddTypeURL_FromValue", test_Any_OddTypeURL_FromValue),
         ("test_Any_OddTypeURL_FromMessage", test_Any_OddTypeURL_FromMessage),
+        ("test_Any_JSON_Extensions", test_Any_JSON_Extensions),
         ("test_IsA", test_IsA),
-        ("test_Any_Registery", test_Any_Registery)
+        ("test_Any_Registry", test_Any_Registry)
     ]
 }
 
@@ -422,7 +424,8 @@ extension Test_Conformance {
         ("testInt32_toosmall", testInt32_toosmall),
         ("testRepeatedBoolWrapper", testRepeatedBoolWrapper),
         ("testString_badUnicodeEscape", testString_badUnicodeEscape),
-        ("testString_surrogates", testString_surrogates)
+        ("testString_surrogates", testString_surrogates),
+        ("testMaps_TextFormatKeysSorted", testMaps_TextFormatKeysSorted)
     ]
 }
 
@@ -580,6 +583,7 @@ extension Test_JSON {
         ("testRepeatedInt32", testRepeatedInt32),
         ("testRepeatedString", testRepeatedString),
         ("testRepeatedNestedMessage", testRepeatedNestedMessage),
+        ("testRepeatedEnum", testRepeatedEnum),
         ("testOneof", testOneof),
         ("testEmptyMessage", testEmptyMessage)
     ]
@@ -635,11 +639,33 @@ extension Test_JSON_Conformance {
         ("testNullSupport_regularTypes", testNullSupport_regularTypes),
         ("testNullSupport_wellKnownTypes", testNullSupport_wellKnownTypes),
         ("testNullSupport_Value", testNullSupport_Value),
+        ("testNullSupport_optionalNullValue", testNullSupport_optionalNullValue),
+        ("testNullSupport_oneofNullValue", testNullSupport_oneofNullValue),
+        ("testNullSupport_oneofNullValue_alternate", testNullSupport_oneofNullValue_alternate),
+        ("testNullSupport_oneofNullValue_numeric", testNullSupport_oneofNullValue_numeric),
+        ("testNullSupport_repeatedNullValue", testNullSupport_repeatedNullValue),
         ("testNullSupport_Repeated", testNullSupport_Repeated),
         ("testNullSupport_RepeatedValue", testNullSupport_RepeatedValue),
         ("testNullConformance", testNullConformance),
         ("testValueList", testValueList),
         ("testNestedAny", testNestedAny)
+    ]
+}
+
+extension Test_JSON_Extensions {
+    static var allTests = [
+        ("test_optionalInt32Extension", test_optionalInt32Extension),
+        ("test_optionalMessageExtension", test_optionalMessageExtension),
+        ("test_repeatedInt32Extension", test_repeatedInt32Extension),
+        ("test_repeatedMessageExtension", test_repeatedMessageExtension),
+        ("test_optionalStringExtensionWithDefault", test_optionalStringExtensionWithDefault),
+        ("test_ArrayWithExtensions", test_ArrayWithExtensions)
+    ]
+}
+
+extension Test_JSON_RecursiveNested_Extensions {
+    static var allTests = [
+        ("test_nestedMessage", test_nestedMessage)
     ]
 }
 
@@ -1186,6 +1212,8 @@ XCTMain(
         testCase(Test_JSONEncodingOptions.allTests),
         testCase(Test_JSON_Array.allTests),
         testCase(Test_JSON_Conformance.allTests),
+        testCase(Test_JSON_Extensions.allTests),
+        testCase(Test_JSON_RecursiveNested_Extensions.allTests),
         testCase(Test_JSON_Group.allTests),
         testCase(Test_Map.allTests),
         testCase(Test_MapFields_Access_Proto2.allTests),
